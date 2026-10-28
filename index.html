@@ -196,9 +196,9 @@ addEventListener('orientationchange', () => setTimeout(resize, 250));
 // toque/mouse: segure e a Laura vai até o dedo. Teclado: ← → ou A D.
 const ptr = { down: false, x: 0, id: null };
 const teclas = { esq: false, dir: false };
-// segredo: com o foguete, segurar o canto onde fica o sol deixa o foguete infinito; soltar desliga
+// segredo: com o foguete, segurar dois dedos na tela (ou J no PC) deixa o foguete infinito; soltar desliga
 const sol = { id: null };
-const noSol = e => Math.hypot(e.clientX / K - (W - 80), e.clientY / K - 90) < 60;
+const dedos = new Set();
 function soltaSol() { sol.id = null; if (laura.segredo) { laura.segredo = false; laura.rocket = 0; } }
 function comecar() {
   if (state === 'start') { state = 'play'; laura.vy = PULO; snd(420, 820, 0.15, 'triangle'); return true; }
@@ -210,7 +210,7 @@ addEventListener('keydown', e => {
   if (['ArrowRight', 'KeyD'].includes(e.code)) { e.preventDefault(); teclas.dir = true; }
   if (['Space', 'Enter', 'ArrowUp'].includes(e.code)) { e.preventDefault(); if (!e.repeat) comecar(); }
   if (e.code === 'KeyM') toggleSom();
-  if (e.code === 'KeyJ' && !e.repeat) sol.id = 'J'; // no PC, segurar J = segurar o sol
+  if (e.code === 'KeyJ' && !e.repeat) sol.id = 'J'; // no PC, segurar J = segurar dois dedos
 });
 addEventListener('keyup', e => {
   if (e.code === 'KeyJ' && sol.id === 'J') soltaSol();
@@ -220,13 +220,15 @@ addEventListener('keyup', e => {
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
   if (comecar()) return;
-  if (noSol(e)) sol.id = e.pointerId;
+  dedos.add(e.pointerId);
+  if (dedos.size >= 2) sol.id = 'dedos';
   ptr.down = true; ptr.id = e.pointerId; ptr.x = e.clientX / K - GX;
 });
 cv.addEventListener('pointermove', e => { if (ptr.down && e.pointerId === ptr.id) ptr.x = e.clientX / K - GX; });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => cv.addEventListener(ev, e => {
   if (e.pointerId === ptr.id) ptr.down = false;
-  if (e.pointerId === sol.id) soltaSol();
+  dedos.delete(e.pointerId);
+  if (sol.id === 'dedos' && dedos.size < 2) soltaSol();
 }));
 // iOS: impede zoom/arrastar a página com dois dedos ou toque duplo
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
@@ -278,7 +280,7 @@ function update(dt) {
   // movimento para os lados
   let alvo = 0;
   if (teclas.esq || teclas.dir) alvo = (teclas.dir - teclas.esq) * 7.5;
-  else if (ptr.down && !(L.segredo && ptr.id === sol.id)) alvo = clamp((ptr.x - L.x) * 0.2, -8.5, 8.5);
+  else if (ptr.down) alvo = clamp((ptr.x - L.x) * 0.2, -8.5, 8.5);
   L.vx += (alvo - L.vx) * Math.min(1, 0.22 * dt);
   if (Math.abs(L.vx) > 0.5) L.face = Math.sign(L.vx);
   L.x += L.vx * dt;
