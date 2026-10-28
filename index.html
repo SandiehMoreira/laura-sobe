@@ -120,7 +120,7 @@ const PREDIOS = [];
 for (let x = -20; x < 2200; x += rand(46, 80)) PREDIOS.push({ x, w: rand(40, 70), h: rand(70, 190), c: pick(['#c9b8e8', '#b8d4f0', '#f0c8d8', '#c8e6c9', '#ffe0b2']) });
 
 function reset() {
-  laura = { x: GW / 2, alt: 0, vx: 0, vy: 0, face: 1, squash: 0, rocket: 0, rot: 0 };
+  laura = { x: GW / 2, alt: 0, vx: 0, vy: 0, face: 1, squash: 0, rocket: 0, rot: 0, segredo: false };
   cam = 0; maxAlt = 0; estrelas = 0; fase = 0; banner = null; novoRecorde = false; luaVista = false;
   plats = [{ x: GW / 2, alt: 0, w: GW * 2, tipo: 'normal', kind: 'chao', vx: 0 }];
   itens = []; parts = []; decor = []; decorDist = 0; lastAlt = 0; lastX = GW / 2;
@@ -196,6 +196,10 @@ addEventListener('orientationchange', () => setTimeout(resize, 250));
 // toque/mouse: segure e a Laura vai até o dedo. Teclado: ← → ou A D.
 const ptr = { down: false, x: 0, id: null };
 const teclas = { esq: false, dir: false };
+// segredo: com o foguete, segurar o canto onde fica o sol deixa o foguete infinito; soltar desliga
+const sol = { id: null };
+const noSol = e => Math.hypot(e.clientX / K - (W - 80), e.clientY / K - 90) < 60;
+function soltaSol() { sol.id = null; if (laura.segredo) { laura.segredo = false; laura.rocket = 0; } }
 function comecar() {
   if (state === 'start') { state = 'play'; laura.vy = PULO; snd(420, 820, 0.15, 'triangle'); return true; }
   if (state === 'over') { if (performance.now() - overAt > 600) { reset(); state = 'play'; laura.vy = PULO; } return true; }
@@ -206,18 +210,24 @@ addEventListener('keydown', e => {
   if (['ArrowRight', 'KeyD'].includes(e.code)) { e.preventDefault(); teclas.dir = true; }
   if (['Space', 'Enter', 'ArrowUp'].includes(e.code)) { e.preventDefault(); if (!e.repeat) comecar(); }
   if (e.code === 'KeyM') toggleSom();
+  if (e.code === 'KeyJ' && !e.repeat) sol.id = 'J'; // no PC, segurar J = segurar o sol
 });
 addEventListener('keyup', e => {
+  if (e.code === 'KeyJ' && sol.id === 'J') soltaSol();
   if (['ArrowLeft', 'KeyA'].includes(e.code)) teclas.esq = false;
   if (['ArrowRight', 'KeyD'].includes(e.code)) teclas.dir = false;
 });
 cv.addEventListener('pointerdown', e => {
   e.preventDefault();
   if (comecar()) return;
+  if (noSol(e)) sol.id = e.pointerId;
   ptr.down = true; ptr.id = e.pointerId; ptr.x = e.clientX / K - GX;
 });
 cv.addEventListener('pointermove', e => { if (ptr.down && e.pointerId === ptr.id) ptr.x = e.clientX / K - GX; });
-['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => cv.addEventListener(ev, e => { if (e.pointerId === ptr.id) ptr.down = false; }));
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => cv.addEventListener(ev, e => {
+  if (e.pointerId === ptr.id) ptr.down = false;
+  if (e.pointerId === sol.id) soltaSol();
+}));
 // iOS: impede zoom/arrastar a página com dois dedos ou toque duplo
 document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 document.addEventListener('gesturestart', e => e.preventDefault());
@@ -268,7 +278,7 @@ function update(dt) {
   // movimento para os lados
   let alvo = 0;
   if (teclas.esq || teclas.dir) alvo = (teclas.dir - teclas.esq) * 7.5;
-  else if (ptr.down) alvo = clamp((ptr.x - L.x) * 0.2, -8.5, 8.5);
+  else if (ptr.down && !(L.segredo && ptr.id === sol.id)) alvo = clamp((ptr.x - L.x) * 0.2, -8.5, 8.5);
   L.vx += (alvo - L.vx) * Math.min(1, 0.22 * dt);
   if (Math.abs(L.vx) > 0.5) L.face = Math.sign(L.vx);
   L.x += L.vx * dt;
@@ -276,9 +286,14 @@ function update(dt) {
 
   // subir / cair
   const antes = L.alt;
+  if (L.rocket > 0 && sol.id !== null && !L.segredo) {
+    L.segredo = true; banner = { txt: 'Foguete infinito! ☀️', t: 0 }; melodia([784, 988, 1175, 1568]);
+  }
+  if (L.segredo) L.rocket = Math.max(L.rocket, 2);
   if (L.rocket > 0) {
     L.rocket -= dt; L.vy = 15;
     if (Math.random() < 0.8) parts.push({ x: L.x + rand(-4, 4), alt: L.alt + 6, vx: rand(-1, 1), vy: rand(-5, -2), life: rand(12, 22), c: pick(['#ffd400', '#ff8a00', '#ff3d3d']), r: rand(2.5, 4.5) });
+    if (L.segredo && Math.random() < 0.5) parts.push({ x: L.x + rand(-14, 14), alt: L.alt + rand(0, 40), vx: rand(-2, 2), vy: rand(-2, 1), life: rand(15, 30), c: pick(['#ffe066', '#fff', '#ffd84d']), r: rand(1.5, 3) });
   } else L.vy -= G * dt;
   L.alt += L.vy * dt;
   L.squash = Math.max(0, L.squash - dt);
