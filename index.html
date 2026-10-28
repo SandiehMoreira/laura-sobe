@@ -43,6 +43,7 @@ const APP = navigator.standalone || matchMedia('(display-mode: standalone), (dis
 const SKIN = '#f6c9a0', HAIR = '#6b3e26', DRESS = '#ff6fae';
 const SPR_SCALE = 0.36;
 const G = 0.45, PULO = 12.5, MOLA = 21, FOGUETE = 150; // pulo normal sobe ~170 (≈5,7 m)
+const CHAO_SEGURO = 20; // até essa altura (m), se errar o pulo ela volta pro chão em vez de perder
 
 // poses desenhadas da Laura (img/). Se não carregarem, usa o desenho feito no código.
 const SPR = {};
@@ -318,9 +319,10 @@ function update(dt) {
     else { L.rocket = FOGUETE; snd(150, 700, 1.5, 'sawtooth', 0.06); faisca(it.x, it.alt, 16, ['#ff3d3d', '#fff', '#ffd400'], 4); }
   }
 
-  // câmera: só sobe, nunca desce
+  // câmera: só sobe (no começo desce junto se ela cair de volta pro chão)
+  const seguro = maxAlt < CHAO_SEGURO * MET;
   const antesCam = cam, alvoCam = L.alt - (H - BASE) * 0.5;
-  if (alvoCam > cam) cam += (alvoCam - cam) * Math.min(1, 0.25 * dt);
+  if (alvoCam > cam || seguro) cam += (Math.max(0, alvoCam) - cam) * Math.min(1, 0.25 * dt);
   const dc = cam - antesCam;
   decor.forEach(d => d.y += dc * d.par);
   decorDist += dc;
@@ -334,10 +336,12 @@ function update(dt) {
   if (nf > fase) { fase = nf; banner = { txt: FASES[nf].aviso, t: 0 }; melodia([523, 659, 784, 1047]); }
 
   gerar();
-  plats = plats.filter(p => p.alt > cam - BASE - 150 && p.qT < 80);
-  itens = itens.filter(it => !it.ok && it.alt > cam - BASE - 100);
+  if (!seguro) {
+    plats = plats.filter(p => p.alt > cam - BASE - 150 && p.qT < 80);
+    itens = itens.filter(it => !it.ok && it.alt > cam - BASE - 100);
+  }
 
-  if (Y(L.alt) > H + 30) gameOver();
+  if (!seguro && Y(L.alt) > H + 30) gameOver();
 }
 
 // ---------- Desenho ----------
