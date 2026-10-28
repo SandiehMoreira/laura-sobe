@@ -2,8 +2,8 @@
 # Gera build/LauraSobe.apk sem Gradle (só build-tools 34 + platform android-34 + JDK 17).
 # Uso (Git Bash, na pasta do projeto): sh android/gerar-apk.sh
 set -e
-VERSAO_NOME=${VERSAO_NOME:-1.0.0}
-VERSAO_COD=${VERSAO_COD:-1}
+VERSAO_NOME=${VERSAO_NOME:-1.1.0}
+VERSAO_COD=${VERSAO_COD:-2}
 
 SDK="${ANDROID_HOME:-$LOCALAPPDATA/Android/Sdk}"
 BT="$SDK/build-tools/34.0.0"
